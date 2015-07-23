@@ -1,0 +1,34 @@
+#!/bin/sh
+# A munki condition to find the graphic chipset model(s) installed on the 
+# machine and store as 'graphics_chipsets'. 
+
+DEFAULTS="/usr/bin/defaults"
+PLUTIL="/usr/bin/plutil"
+
+# Read the location of the ManagedInstallDir from ManagedInstall.plist
+MANAGED_INSTALL_DIR="$(${DEFAULTS} read \
+/Library/Preferences/ManagedInstalls ManagedInstallDir)"
+
+# Make sure we're outputting our information to "ConditionalItems.plist" 
+# (plist is left off since defaults requires this)
+COND_ITEMS="${MANAGED_INSTALL_DIR}/ConditionalItems"
+
+# Set the field separator to newline since each unique item is on its own line
+IFS=$'\n'
+
+for GRAPHICS_CHIPSET in \
+  "$(/usr/sbin/system_profiler SPDisplaysDataType \
+  | grep "Chipset Model:" \
+  | cut -c 22-)"; do 
+  # Build an array of values from output of the above command.
+  GRAPHICS_CHIPSETS+=( ${GRAPHICS_CHIPSET} )
+done;
+
+# Write the resulting array values to the conditional items plist
+"${DEFAULTS}" write "${COND_ITEMS}" "graphics_chipsets" \
+  -array "${GRAPHICS_CHIPSETS[@]}"
+
+# Convert the plist to from binary to xml so munki can read it.
+"${PLUTIL}" -convert xml1 "${COND_ITEMS}".plist
+
+exit 0
